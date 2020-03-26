@@ -3,3 +3,7 @@
 
 [print_schema]
 file = "src/database/schema.rs"
+
+# import_types = ["diesel::sql_types::*", "super::IndiFuncMapping"]
+filter = { except_tables = ["set_indicators"  # custom enum
+]}

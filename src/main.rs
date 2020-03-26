@@ -16,7 +16,7 @@ pub mod params;
 
 use database::db_indicator::*;
 use database::*;
-use params::Indicator;
+use params::*;
 
 use diesel::prelude::*;
 use dotenv::dotenv;
@@ -53,11 +53,11 @@ fn main() {
         &Indicator {
             name: "test123".into(),
             shift: 0,
-            inputs: vec![vec![0.6], vec![20.0, 40.0, 2.0], vec![40.0]],
+            inputs: vec_vec_to_bigdecimal(vec![vec![0.6], vec![20.0, 40.0, 2.0], vec![40.0]]),
         },
         None,
     );
-    let ind = load_indicator(&connection, indi.id);
+    let ind = load_indicator(&connection, indi.indicator_id);
     println!("{:?}", ind);
 }
 
@@ -73,7 +73,7 @@ pub fn create_indicator<'a>(conn: &PgConnection, name: &'a str) -> db_indicator:
 
     let new_indi = db_indicator::NewDbIndicator {
         parent_id: None,
-        name: name,
+        indicator: name,
         shift: 0i16,
     };
 
@@ -86,10 +86,10 @@ pub fn create_indicator<'a>(conn: &PgConnection, name: &'a str) -> db_indicator:
 pub fn update_indicator(conn: &PgConnection, indi: &db_indicator::DbIndicator) {
     use schema::indicators::dsl::*;
 
-    let ii = diesel::update(indicators.find(indi.id))
-        .set(parent_id.eq(indi.id - 1))
+    let ii = diesel::update(indicators.find(indi.indicator_id))
+        .set(parent_id.eq(indi.indicator_id - 1))
         .get_result::<db_indicator::DbIndicator>(conn)
-        .expect(&format!("Unable to update indicator {}", indi.id));
+        .expect(&format!("Unable to update indicator {}", indi.indicator_id));
 
     println!("updated indicator {:?}", ii);
 }
