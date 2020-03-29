@@ -116,13 +116,12 @@ pub fn store_indicator(
     new_db_indi.parent_id = parent;
 
     if parent == None {
-        // TODO check if an indicator with this name already in the database
+        // TODO check if an indicator with this name is already in the database
     }
 
     let new_indi: DbIndicator = diesel::insert_into(indicators)
         .values(new_db_indi)
-        .get_result(conn)
-        .expect("Error saving new indicator");
+        .get_result(conn)?;
 
     let indi_inputs: Vec<DbIndicatorInput> = indi
         .inputs

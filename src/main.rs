@@ -15,6 +15,7 @@ pub mod database;
 pub mod params;
 
 use database::db_indicator::*;
+use database::db_indicator_set::*;
 use database::*;
 use params::*;
 
@@ -59,6 +60,9 @@ fn main() {
     );
     let ind = load_indicator(&connection, indi.indicator_id);
     println!("{:?}", ind);
+
+    // let indi_set = store_new_db_indicator_set(&connection);
+    // println!("indi set with new id: {:?}", indi_set);
 }
 
 pub fn establish_connection() -> PgConnection {
