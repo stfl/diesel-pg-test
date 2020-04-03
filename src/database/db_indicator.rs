@@ -5,6 +5,17 @@ use super::*;
 use bigdecimal::BigDecimal;
 use diesel::prelude::*;
 
+table! {
+    use diesel::sql_types::*;
+    use super::DbIndiFuncMapping;
+    indicator_default_func (indicator_id) {
+        indicator_id -> Int4,
+        func -> DbIndiFuncMapping,
+    }
+}
+
+joinable!(indicator_default_func -> indicators (indicator_id));
+
 #[derive(Queryable, Associations, Identifiable, Debug)]
 #[primary_key(indicator_id)]
 #[table_name = "indicators"]
@@ -22,6 +33,28 @@ pub struct NewDbIndicator<'a> {
     pub parent_id: Option<i32>,
     pub indicator: &'a str,
     pub shift: i16,
+}
+
+#[derive(Queryable, Insertable, Identifiable, Associations, Debug)]
+#[primary_key(indicator_id, index)]
+#[belongs_to(DbIndicator, foreign_key = "indicator_id")]
+#[table_name = "indicator_inputs"]
+pub struct DbIndicatorInput {
+    pub indicator_id: i32, // 1:m
+    pub index: i16,
+    pub input: Option<BigDecimal>,
+    pub start: Option<BigDecimal>,
+    pub stop: Option<BigDecimal>,
+    pub step: Option<BigDecimal>,
+}
+
+#[derive(Queryable, Insertable, Identifiable, Associations, Debug)]
+#[primary_key(indicator_id)]
+#[belongs_to(DbIndicator, foreign_key = "indicator_id")]
+#[table_name = "indicator_default_func"]
+pub struct DbIndicatorDefaultFunc {
+    pub indicator_id: i32,
+    func: DbIndiFunc,
 }
 
 impl<'a> From<&'a Indicator> for NewDbIndicator<'a> {
@@ -91,19 +124,8 @@ impl DbIndicator {
     }
 }
 
-#[derive(Queryable, Insertable, Identifiable, Associations, Debug)]
-#[primary_key(indicator_id, index)]
-#[belongs_to(DbIndicator, foreign_key = "indicator_id")]
-#[table_name = "indicator_inputs"]
-pub struct DbIndicatorInput {
-    pub indicator_id: i32, // 1:m
-    pub index: i16,
-    pub input: Option<BigDecimal>,
-    pub start: Option<BigDecimal>,
-    pub stop: Option<BigDecimal>,
-    pub step: Option<BigDecimal>,
-}
-
+// TODO make a method on Indicator
+// store_db()
 pub fn store_indicator(
     conn: &PgConnection,
     indi: &Indicator,
@@ -156,12 +178,33 @@ pub fn store_indicator(
         })
         .collect();
 
-    let res: Vec<DbIndicatorInput> = diesel::insert_into(indicator_inputs)
+    let indi_inputs: Vec<DbIndicatorInput> = diesel::insert_into(indicator_inputs)
         .values(&indi_inputs)
         .get_results(conn)?;
-    println!("inserted {:?}\n{:?}", new_indi, res);
+    // TODO info!()
+    println!("inserted indicator: {:?}\nwith inputs: {:?}", new_indi, indi_inputs);
 
     Ok(new_indi)
+}
+
+pub fn store_indicators_with_default_func(conn: &PgConnection, indis: &Vec<(DbIndiFunc, Indicator)>) -> QueryResult<Vec<DbIndicator>> {
+    let mut db_indis : Vec<DbIndicator> = vec![];
+    for (f, i) in indis {
+        let db_indi = store_indicator(conn, &i, None)?;
+        let _ = store_indicator_default_func(conn, f, &db_indi);
+        db_indis.push(db_indi);
+    }
+    Ok(db_indis)
+}
+
+pub fn store_indicator_default_func(conn: &PgConnection, indi_func: &DbIndiFunc, indi: &DbIndicator) -> QueryResult<DbIndicatorDefaultFunc> {
+    use self::indicator_default_func::dsl::*;
+    diesel::insert_into(indicator_default_func)
+        .values(DbIndicatorDefaultFunc {
+            indicator_id: indi.indicator_id,
+            func: indi_func.to_owned(),
+        })
+        .get_result(conn)
 }
 
 pub fn load_db_indicator(

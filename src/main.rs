@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(unused)]
+
 #[macro_use]
 extern crate diesel;
 extern crate dotenv;
@@ -10,10 +13,16 @@ extern crate log;
 
 #[macro_use]
 extern crate serde_derive;
+extern crate glob;
 
 pub mod database;
 pub mod params;
 
+use std::ffi::OsString;
+use std::path::Path;
+use std::path::PathBuf;
+use std::fs;
+use glob::glob;
 use database::db_indicator::*;
 use database::db_indicator_set::*;
 use database::*;
@@ -61,6 +70,10 @@ fn main() {
     let ind = load_indicator(&connection, indi.indicator_id);
     println!("{:?}", ind);
 
+    let indis = load_all_indicator_files().unwrap();
+    let db_indis = store_indicators_with_default_func(&connection, &indis).unwrap();
+    println!("{:?}", db_indis);
+
     // let indi_set = store_new_db_indicator_set(&connection);
     // println!("indi set with new id: {:?}", indi_set);
 }
@@ -94,6 +107,24 @@ pub fn update_indicator(conn: &PgConnection, indi: &db_indicator::DbIndicator) {
         .set(parent_id.eq(indi.indicator_id - 1))
         .get_result::<db_indicator::DbIndicator>(conn)
         .expect(&format!("Unable to update indicator {}", indi.indicator_id));
-
     println!("updated indicator {:?}", ii);
+}
+
+pub fn load_all_indicator_files() -> std::io::Result<Vec<(DbIndiFunc, Indicator)>> {
+    use DbIndiFunc::*;
+    let mut indis: Vec<(DbIndiFunc, Indicator)> = vec![];
+    for entry in glob("config/indicator/*/*").unwrap().filter_map(Result::ok) {
+        // entry.ancestors().next().unwrap().next().unwrap().file_name()
+        // TODO debug!()
+        println!("loading indicator file: {:?}", entry);
+        indis.push((match entry.parent().unwrap().file_name().unwrap().to_str().unwrap() {
+            "confirm" => Confirm,
+            "baseline" => Baseline,
+            "exit" => Exit,
+            "volume" => Volume,
+            "continue" => Continue,
+            e => panic!("unknown func {:?}", e),
+        }, serde_any::from_file(entry).unwrap()))
+    }
+    Ok(indis)
 }

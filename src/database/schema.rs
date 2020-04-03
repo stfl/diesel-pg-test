@@ -26,4 +26,8 @@ table! {
 
 joinable!(indicator_inputs -> indicators (indicator_id));
 
-allow_tables_to_appear_in_same_query!(indicator_inputs, indicator_sets, indicators,);
+allow_tables_to_appear_in_same_query!(
+    indicator_inputs,
+    indicator_sets,
+    indicators,
+);

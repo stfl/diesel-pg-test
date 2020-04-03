@@ -7,14 +7,14 @@ use diesel_derive_enum::DbEnum;
 use super::super::params::IndicatorSet;
 use super::load_indicator;
 
-// Custom declaration of indicator_sets to allow derive(DbEnum) for IndiFunc
+// Custom declaration of indicator_sets to allow derive(DbEnum) for DbIndiFunc
 table! {
     use diesel::sql_types::*;
-    use super::IndiFuncMapping;
+    use super::DbIndiFuncMapping;
     set_indicators (set_id, indicator_id) {
         set_id -> Int8,
         indicator_id -> Int4,
-        func -> IndiFuncMapping,
+        func -> DbIndiFuncMapping,
     }
 }
 
@@ -22,7 +22,7 @@ joinable!(set_indicators -> indicators (indicator_id));
 joinable!(set_indicators -> indicator_sets (set_id));
 
 #[derive(DbEnum, Debug, PartialEq, Eq, Hash, Copy, Clone)]
-pub enum IndiFunc {
+pub enum DbIndiFunc {
     Confirm,
     Confirm2,
     Confirm3,
@@ -39,7 +39,7 @@ pub enum IndiFunc {
 pub struct DbSetIndicator {
     set_id: i64,
     indicator_id: i32, // 1:m
-    func: IndiFunc,
+    func: DbIndiFunc,
 }
 
 #[derive(Queryable, Insertable, Identifiable, Debug)]
@@ -58,7 +58,7 @@ pub fn load_indicator_set(
     indi_set_id: i64,
 ) -> Result<IndicatorSet, diesel::result::Error> {
     use self::set_indicators::dsl::*;
-    use IndiFunc::*;
+    use DbIndiFunc::*;
 
     let db_indi_set = set_indicators
         .filter(set_id.eq(indi_set_id))
@@ -66,11 +66,11 @@ pub fn load_indicator_set(
         .iter()
         .map(|set| (load_indicator(conn, set.indicator_id).unwrap(), set.func)) // load all indicators specified in the Set
         // FIXME database errors or if the indicator is not found are ignored
-        .collect::<Vec<(Indicator, IndiFunc)>>(); // store the Indicator struct together with it's function for the set
+        .collect::<Vec<(Indicator, DbIndiFunc)>>(); // store the Indicator struct together with it's function for the set
 
     let mut indi_set: IndicatorSet = Default::default();
     for indi in db_indi_set {
-        // match IndiFunc
+        // match DbIndiFunc
         match indi.1 {
             Confirm => indi_set.confirm = Some(indi.0), // and assign the Indicator struct
             Confirm2 => indi_set.confirm2 = Some(indi.0),
@@ -98,9 +98,9 @@ pub fn find_db_indicator_set(
 
 pub fn store_plain_indicator_set(
     conn: &PgConnection,
-    indi_set: IndicatorSet,
+    indi_set: &IndicatorSet,
 ) -> QueryResult<Vec<DbSetIndicator>> {
-    let db_indi_set: store_new_db_indicator_set(conn)?;
+    let db_indi_set = store_new_db_indicator_set(conn)?;
     // TODO Optional
     // TODO
     // for each func in indi_set
@@ -112,13 +112,12 @@ pub fn store_plain_indicator_set(
 
 pub fn store_set_indicators(
     conn: &PgConnection,
-    indi_set: Vec<DbSetIndicator>,
+    set_indis: Vec<DbSetIndicator>,
 ) -> QueryResult<Vec<DbSetIndicator>> {
-    let db_indi_set: store_new_db_indicator_set(conn)?;
-    // TODO Optional
-    // TODO
-    // if find or insert fails.. -> delete db_indi_set
-    unimplemented!();
+    use self::set_indicators::dsl::*;
+    diesel::insert_into(set_indicators)
+        .values(set_indis)
+        .get_results(conn)
 }
 
 // creates a new indicator_set in the DB (a new row) which gets a ne unique id that can be used for set_indicators

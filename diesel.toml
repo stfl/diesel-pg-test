@@ -5,5 +5,5 @@
 file = "src/database/schema.rs"
 
 # import_types = ["diesel::sql_types::*", "super::IndiFuncMapping"]
-filter = { except_tables = ["set_indicators"  # custom enum
+filter = { except_tables = ["set_indicators", "indicator_default_func"  # custom indifunc enum
 ]}
