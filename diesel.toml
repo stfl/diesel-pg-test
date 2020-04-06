@@ -4,6 +4,7 @@
 [print_schema]
 file = "src/database/schema.rs"
 
-# import_types = ["diesel::sql_types::*", "super::IndiFuncMapping"]
-filter = { except_tables = ["set_indicators", "indicator_default_func"  # custom indifunc enum
-]}
+# import_types = ["diesel::sql_types::*", "crate::database::DbIndiFuncMapping"]
+# filter = { except_tables = ["set_indicators", "indicator_default_func"  # custom indifunc enum
+# ]}
+patch_file = "diesel_schema.patch"

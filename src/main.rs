@@ -66,13 +66,14 @@ fn main() {
             inputs: vec_vec_to_bigdecimal(vec![vec![0.6], vec![20.0, 40.0, 2.0], vec![40.0]]),
         },
         None,
+        DbIndiFunc::Confirm,
     );
     let ind = load_indicator(&connection, indi.indicator_id);
     println!("{:?}", ind);
 
     let indis = load_all_indicator_files().unwrap();
-    let db_indis = store_indicators_with_default_func(&connection, &indis).unwrap();
-    println!("{:?}", db_indis);
+    // let db_indis = store_indicators_with_default_func(&connection, &indis).unwrap();
+    // println!("{:?}", db_indis);
 
     // let indi_set = store_new_db_indicator_set(&connection);
     // println!("indi set with new id: {:?}", indi_set);
@@ -90,8 +91,10 @@ pub fn create_indicator<'a>(conn: &PgConnection, name: &'a str) -> db_indicator:
 
     let new_indi = db_indicator::NewDbIndicator {
         parent_id: None,
-        indicator: name,
+        child_id: None,
+        indicator_name: name,
         shift: 0i16,
+        func:  DbIndiFunc::Exit,
     };
 
     diesel::insert_into(indicators::table)
