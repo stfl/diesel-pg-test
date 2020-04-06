@@ -20,21 +20,20 @@ use super::load_indicator;
 // joinable!(set_indicators -> indicators (indicator_id));
 // joinable!(set_indicators -> indicator_sets (set_id));
 
-
 #[derive(Queryable, Insertable, Identifiable, Associations, Debug)]
 #[primary_key(indicator_set_id, indicator_id)]
 #[belongs_to(Indicator)]
 #[table_name = "set_indicators"]
 pub struct DbSetIndicator {
-    indicator_set_id: i64,
-    indicator_id: i32, // 1:m
+    pub indicator_set_id: i64,
+    pub indicator_id: i32, // 1:m
 }
 
 #[derive(Queryable, Insertable, Identifiable, Debug)]
 #[primary_key(indicator_set_id)]
 #[table_name = "indicator_sets"]
 pub struct DbIndicatorSet {
-    indicator_set_id: i64,
+    pub indicator_set_id: i64,
 }
 
 // #[derive(Insertable, Debug)]

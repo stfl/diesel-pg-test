@@ -33,10 +33,10 @@ pub struct DbIndicator {
 
 #[derive(Insertable)]
 #[table_name = "indicators"]
-pub struct NewDbIndicator<'a> {
+pub struct NewDbIndicator {
     pub parent_id: Option<i32>,
     pub child_id: Option<i32>,
-    pub indicator_name: &'a str,
+    pub indicator_name: String,
     pub shift: i16,
     pub func: DbIndiFunc,
 }
@@ -87,14 +87,26 @@ pub enum DbIndiFunc {
 //     }
 // }
 
-impl<'a> From<(DbIndiFunc, &'a Indicator)> for NewDbIndicator<'a> {
+impl<'a> From<(DbIndiFunc, &'a Indicator)> for NewDbIndicator {
     fn from((func, indi): (DbIndiFunc, &'a Indicator)) -> Self {
         NewDbIndicator {
             parent_id: None,
             child_id: None,
-            indicator_name: &indi.name,
+            indicator_name: indi.name.clone(),
             shift: indi.shift as i16,
-            func //: func.to_owned(),
+            func, //: func.to_owned(),
+        }
+    }
+}
+
+impl From<(DbIndiFunc, Indicator)> for NewDbIndicator {
+    fn from((func, indi): (DbIndiFunc, Indicator)) -> Self {
+        NewDbIndicator {
+            parent_id: None,
+            child_id: None,
+            indicator_name: indi.name,
+            shift: indi.shift as i16,
+            func,
         }
     }
 }
@@ -137,13 +149,15 @@ impl DbIndicator {
         self.set_child(conn, &child)
     }
 
-    pub fn set_child(self: Self, conn: &PgConnection, indi: &DbIndicator,
+    pub fn set_child(
+        self: Self,
+        conn: &PgConnection,
+        indi: &DbIndicator,
     ) -> QueryResult<DbIndicator> {
         unimplemented!()
     }
 
-    pub fn set_parent()
-     -> QueryResult<DbIndicator> {
+    pub fn set_parent() -> QueryResult<DbIndicator> {
         unimplemented!()
     }
 
@@ -158,10 +172,7 @@ impl DbIndicator {
         }
     }
 
-    pub fn try_load(
-        conn: &PgConnection,
-        indi_id: i32,
-    ) -> QueryResult<DbIndicator> {
+    pub fn try_load(conn: &PgConnection, indi_id: i32) -> QueryResult<DbIndicator> {
         use schema::indicators::dsl::*;
         indicators.find(indi_id).first::<DbIndicator>(conn)
     }
@@ -178,7 +189,7 @@ pub fn store_indicator(
     use schema::indicator_inputs::dsl::*;
     use schema::indicators::dsl::*;
 
-    let mut new_db_indi  = NewDbIndicator::from((indi_func, indi));
+    let mut new_db_indi = NewDbIndicator::from((indi_func, indi));
     new_db_indi.parent_id = parent;
 
     if parent == None {
@@ -226,10 +237,17 @@ pub fn store_indicator(
         .values(&indi_inputs)
         .get_results(conn)?;
     // TODO info!()
-    println!("inserted indicator: {:?}\nwith inputs: {:?}", new_indi, indi_inputs);
+    println!(
+        "inserted indicator: {:?}\nwith inputs: {:?}",
+        new_indi, indi_inputs
+    );
 
     Ok(new_indi)
 }
+
+// trait ToDb {
+//     fn to_db(conn: &PgConnection) -> Result<(), Error>;
+// }
 
 // pub fn store_indicators_with_default_func(conn: &PgConnection, indis: &Vec<(DbIndiFunc, Indicator)>) -> QueryResult<Vec<DbIndicator>> {
 //     let mut db_indis : Vec<DbIndicator> = vec![];
@@ -259,10 +277,7 @@ pub fn load_db_indicator(
     indicators.find(indi_id).first::<DbIndicator>(conn)
 }
 
-pub fn load_indicator(
-    conn: &PgConnection,
-    indi_id: i32,
-) -> QueryResult<Indicator> {
+pub fn load_indicator(conn: &PgConnection, indi_id: i32) -> QueryResult<Indicator> {
     use schema::indicator_inputs::dsl::*;
 
     let indi = DbIndicator::try_load(conn, indi_id)?;
