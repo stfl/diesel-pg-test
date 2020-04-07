@@ -56,7 +56,7 @@ table! {
         start_date -> Date,
         end_date -> Date,
         expert_version -> Nullable<Uuid>,
-        symbols_set_id -> Int4,
+        symbol_set_id -> Int4,
     }
 }
 
@@ -70,22 +70,22 @@ table! {
 }
 
 table! {
-    session_symbol_sets (symbols_set_id) {
-        symbols_set_id -> Int4,
+    set_indicators (indicator_set_id, indicator_id) {
+        indicator_set_id -> Int8,
+        indicator_id -> Int4,
     }
 }
 
 table! {
-    session_symbols (symbols_set_id) {
-        symbols_set_id -> Int4,
+    set_symbols (symbol_set_id) {
+        symbol_set_id -> Int4,
         symbol -> Varchar,
     }
 }
 
 table! {
-    set_indicators (indicator_set_id, indicator_id) {
-        indicator_set_id -> Int8,
-        indicator_id -> Int4,
+    symbol_sets (symbol_set_id) {
+        symbol_set_id -> Int4,
     }
 }
 
@@ -93,12 +93,12 @@ joinable!(expert_inputs -> run_sessions (session_id));
 joinable!(indicator_inputs -> indicators (indicator_id));
 joinable!(results -> indicator_sets (indicator_set_id));
 joinable!(results -> runs (run_id));
-joinable!(run_sessions -> session_symbol_sets (symbols_set_id));
+joinable!(run_sessions -> symbol_sets (symbol_set_id));
 joinable!(runs -> indicator_sets (indicator_set_id));
 joinable!(runs -> run_sessions (session_id));
-joinable!(session_symbols -> session_symbol_sets (symbols_set_id));
 joinable!(set_indicators -> indicator_sets (indicator_set_id));
 joinable!(set_indicators -> indicators (indicator_id));
+joinable!(set_symbols -> symbol_sets (symbol_set_id));
 
 allow_tables_to_appear_in_same_query!(
     expert_inputs,
@@ -108,7 +108,7 @@ allow_tables_to_appear_in_same_query!(
     results,
     run_sessions,
     runs,
-    session_symbol_sets,
-    session_symbols,
     set_indicators,
+    set_symbols,
+    symbol_sets,
 );

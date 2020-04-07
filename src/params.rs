@@ -1,6 +1,3 @@
-#![allow(dead_code)]
-#![allow(unused_variables)]
-
 use std::collections::VecDeque;
 use std::convert::TryFrom;
 use std::ffi::{OsStr, OsString};

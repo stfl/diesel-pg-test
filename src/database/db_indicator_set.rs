@@ -1,6 +1,7 @@
 // use serde_repr::{Serialize_repr, Deserialize_repr};
 use super::super::params::Indicator;
 use super::schema::*; //{indicator_sets, indicators};
+use crate::database::db_indicator::DbIndicator;
 use diesel::prelude::*;
 
 use super::super::params::IndicatorSet;
@@ -22,7 +23,8 @@ use super::load_indicator;
 
 #[derive(Queryable, Insertable, Identifiable, Associations, Debug)]
 #[primary_key(indicator_set_id, indicator_id)]
-#[belongs_to(Indicator)]
+#[belongs_to(DbIndicator, foreign_key = "indicator_id")]
+#[belongs_to(DbIndicatorSet, foreign_key = "indicator_set_id")]
 #[table_name = "set_indicators"]
 pub struct DbSetIndicator {
     pub indicator_set_id: i64,
@@ -113,4 +115,27 @@ pub fn store_new_db_indicator_set(conn: &PgConnection) -> QueryResult<DbIndicato
     diesel::insert_into(indicator_sets)
         .default_values()
         .get_result(conn)
+}
+
+pub fn store_new_indicator_set(
+    conn: &PgConnection,
+    indis: &Vec<DbIndicator>,
+) -> QueryResult<DbIndicatorSet> {
+    use crate::database::schema::indicator_sets;
+    let indi_set = store_new_db_indicator_set(conn)?;
+    let set_indis = indis
+        .iter()
+        .map(|i| DbSetIndicator {
+            indicator_set_id: indi_set.id().to_owned(),
+            indicator_id: i.id().to_owned(),
+        })
+        .collect();
+
+    if let Err(e) = store_set_indicators(conn, set_indis) {
+        error!("inserting the indicators for a set failed. deleting the indicator_set record with id {}", indi_set.id());
+        let _ = diesel::delete(indicator_sets::table.find(indi_set.id())).execute(conn)?;
+        return Err(e);
+    }
+
+    Ok(indi_set)
 }

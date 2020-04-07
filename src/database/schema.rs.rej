@@ -1,0 +1,19 @@
+--- schema.rs
++++ schema.rs
+@@ -28,13 +28,15 @@ table! {
+ }
+ 
+ table! {
++    use diesel::sql_types::*;
++    use crate::database::DbIndiFuncMapping;
+     indicators (indicator_id) {
+         indicator_id -> Int4,
+         parent_id -> Nullable<Int4>,
+         child_id -> Nullable<Int4>,
+         indicator_name -> Varchar,
+         shift -> Int2,
+-        func -> Indifunc,
++        func -> DbIndiFuncMapping,
+     }
+ }
+ 

@@ -111,6 +111,18 @@ impl From<(DbIndiFunc, Indicator)> for NewDbIndicator {
     }
 }
 
+// impl From<DbIndicator> for NewDbIndicator {
+//     fn from(indi: &DbIndicator) -> Self {
+//         NewDbIndicator {
+//             parent_id: None,
+//             child_id: None,
+//             indicator_name: indi.name.to_owned(),
+//             shift: indi.shift as i16,
+//             func: indi.func,
+//         }
+//     }
+// }
+
 impl From<(DbIndicator, Vec<DbIndicatorInput>)> for Indicator {
     fn from((indi, mut indi_inputs): (DbIndicator, Vec<DbIndicatorInput>)) -> Self {
         indi_inputs.sort_by_key(|v| v.index);
@@ -149,6 +161,26 @@ impl DbIndicator {
         self.set_child(conn, &child)
     }
 
+    pub fn new_child_no_ref(self: &Self, conn: &PgConnection) -> QueryResult<DbIndicator> {
+        use crate::database::schema::indicators::dsl::*;
+        diesel::insert_into(indicators)
+            .values(NewDbIndicator {
+                parent_id: Some(self.id().to_owned()),
+                child_id: None,
+                indicator_name: self.name.to_owned(),
+                shift: self.shift as i16,
+                func: self.func,
+            })
+            .get_result(conn)
+    }
+
+    pub fn new_child(self: Self, conn: &PgConnection) -> QueryResult<DbIndicator> {
+        use crate::database::schema::indicators::dsl::*;
+        let child = self.new_child_no_ref(conn)?;
+        let _ = self.set_child(conn, &child)?;
+        Ok(child)
+    }
+
     pub fn set_child(
         self: Self,
         conn: &PgConnection,
@@ -178,8 +210,7 @@ impl DbIndicator {
     }
 }
 
-// TODO make a method on Indicator
-// store_db()
+// TODO implment a trait ToDb which params::Indicator implements
 pub fn store_indicator(
     conn: &PgConnection,
     indi: &Indicator,
@@ -277,16 +308,22 @@ pub fn load_db_indicator(
     indicators.find(indi_id).first::<DbIndicator>(conn)
 }
 
-pub fn load_indicator(conn: &PgConnection, indi_id: i32) -> QueryResult<Indicator> {
+pub fn load_indicator(
+    conn: &PgConnection,
+    indi_id: i32,
+) -> QueryResult<(DbIndicator, Vec<DbIndicatorInput>)> {
     use schema::indicator_inputs::dsl::*;
 
     let indi = DbIndicator::try_load(conn, indi_id)?;
 
-    let indi_inputs = indicator_inputs
-        .filter(indicator_id.eq(indi_id))
-        .load::<DbIndicatorInput>(conn)?;
+    let indi_inputs =
+        DbIndicatorInput::belonging_to(&indi).get_results::<DbIndicatorInput>(conn)?;
 
-    Ok((indi, indi_inputs).into())
+    // let indi_inputs = indicator_inputs
+    //     .filter(indicator_id.eq(indi_id))
+    //     .load::<DbIndicatorInput>(conn)?;
+
+    Ok((indi, indi_inputs))
 }
 
 pub fn find_db_indicator(
