@@ -17,7 +17,7 @@ use diesel_derive_enum::DbEnum;
 
 // joinable!(indicator_default_func -> indicators (indicator_id));
 
-#[derive(Queryable, Associations, Identifiable, Debug)]
+#[derive(Queryable, Associations, Identifiable, Debug, Clone)]
 #[primary_key(indicator_id)]
 #[table_name = "indicators"]
 #[belongs_to(DbIndicator, foreign_key = "parent_id")]
@@ -41,7 +41,7 @@ pub struct NewDbIndicator {
     pub func: DbIndiFunc,
 }
 
-#[derive(Queryable, Insertable, Identifiable, Associations, Debug)]
+#[derive(Queryable, Insertable, Identifiable, Associations, Debug, Clone)]
 #[primary_key(indicator_id, index)]
 #[belongs_to(DbIndicator, foreign_key = "indicator_id")]
 #[table_name = "indicator_inputs"]

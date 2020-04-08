@@ -47,8 +47,8 @@ CREATE TABLE runs (
 CREATE TABLE results (
        run_id BIGINT NOT NULL REFERENCES runs(run_id),
        indicator_set_id BIGINT NOT NULL REFERENCES indicator_sets(indicator_set_id), -- instances of the set defined in run
-       run_result FLOAT NOT NULL,
-       run_profit FLOAT NOT NULL,
+       result FLOAT NOT NULL,
+       profit FLOAT NOT NULL,
        trades INTEGER NOT NULL CHECK(trades >= 0),
        -- TODO what else can be parsed from the result? -- best if we keep everything?!
        CONSTRAINT results_pk PRIMARY KEY (run_id, indicator_set_id)

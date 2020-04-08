@@ -44,8 +44,8 @@ table! {
     results (run_id, indicator_set_id) {
         run_id -> Int8,
         indicator_set_id -> Int8,
-        run_result -> Float8,
-        run_profit -> Float8,
+        result -> Float8,
+        profit -> Float8,
         trades -> Int4,
     }
 }

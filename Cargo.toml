@@ -26,3 +26,4 @@ uuid = { version = "0.8", default-features = false }
 
 glob = "0.3"
 rand = "0.7"
+rand_distr = "0.2"
