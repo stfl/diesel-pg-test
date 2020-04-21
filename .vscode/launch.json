@@ -1,0 +1,58 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": ["build", "--bin=pg-test", "--package=pg-test"],
+                "filter": {
+                    "name": "pg-test",
+                    "kind": "bin"
+                },
+            },
+            // "args": [
+            //     "-c", "config/config_single.yaml",
+            //     "run", "config/run_single.yaml"
+            // ],
+            "cwd": "${workspaceRoot}",
+            "sourceLanguages": ["rust"],
+        },
+        {
+            "name": "Gen",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": ["build", "--bin=pg-test", "--package=pg-test"],
+                "filter": {
+                    "name": "pg-test",
+                    "kind": "bin"
+                },
+            },
+            "args": ["-w", "/tmp",
+                    "gen", "config/generate/exit/stc.yaml",
+                    "-i", "/tmp/config/indicator/exit"
+                ],
+            "cwd": "${workspaceRoot}",
+            "sourceLanguages": ["rust"],
+        },
+        {
+            "name": "Tests",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": ["test", "--no-run"], // Cargo command line to build the debug target
+                // "args": ["build", "--bin=foo"] is another possibility
+                "filter": {
+                    // Filter applied to compilation artifacts (optional)
+                    "name": "pg-test",
+                    "kind": "bin"
+                }
+            }
+        }
+    ]
+}

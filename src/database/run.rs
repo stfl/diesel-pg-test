@@ -7,7 +7,7 @@
 //     }
 // }
 
-use crate::database::db_indicator_set::DbIndicatorSet;
+use crate::database::indicator_set::IndicatorSet;
 use crate::database::run_session::RunSession;
 use crate::database::schema::*;
 use chrono::prelude::*;
@@ -16,7 +16,7 @@ use chrono::NaiveDateTime;
 #[derive(Queryable, Associations, Identifiable, Debug)]
 #[primary_key(run_id)]
 #[belongs_to(RunSession, foreign_key = "session_id")]
-#[belongs_to(DbIndicatorSet, foreign_key = "indicator_set_id")]
+#[belongs_to(IndicatorSet, foreign_key = "indicator_set_id")]
 pub struct Run {
     pub run_id: i64,
     pub session_id: i32,

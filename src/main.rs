@@ -21,11 +21,11 @@ extern crate uuid;
 pub mod database;
 pub mod params;
 
-use database::db_indicator::*;
-use database::db_indicator_set::*;
+use database::indicator::*;
+use database::indicator_set::*;
 use database::*;
 use glob::glob;
-use params::*;
+// use params;
 use std::ffi::OsString;
 use std::fs;
 use std::path::Path;
@@ -41,6 +41,9 @@ extern crate rand_distr;
 use rand::prelude::*;
 use std::collections::HashMap;
 use std::ops::Add;
+use indicator_inputs_explicit::NewIndicatorInputsExplicit;
+use result::RunResult;
+use result_set::ResultSet;
 
 fn main() {
     use database::schema::indicators::dsl::*;
@@ -58,7 +61,7 @@ fn main() {
     // let results = indicators
     //     // .filter(parent_ranged_id.eq(Some))
     //     .limit(5)
-    //     .load::<DbIndicator>(&connection)
+    //     .load::<Indicator>(&connection)
     //     .expect("Error loading indicators");
 
     // println!("Displaying {} posts", results.len());
@@ -81,6 +84,7 @@ fn main() {
     // let ind = load_indicator(&connection, indi.indicator_id);
     // println!("{:?}", ind);
 
+    // HACK comment in to load indicators from file
     let indis = load_all_indicators_from_file(&connection).unwrap();
 
     let res = generate_test_results(&connection).unwrap();
@@ -94,10 +98,10 @@ pub fn establish_connection() -> PgConnection {
     PgConnection::establish(&database_url).expect(&format!("Error connecting to {}", database_url))
 }
 
-// pub fn create_indicator<'a>(conn: &PgConnection, name: &'a str) -> db_indicator::DbIndicator {
+// pub fn create_indicator<'a>(conn: &PgConnection, name: &'a str) -> db_indicator::Indicator {
 //     use schema::indicators;
 
-//     let new_indi = db_indicator::NewDbIndicator {
+//     let new_indi = db_indicator::NewIndicator {
 //         parent_id: None,
 //         child_id: None,
 //         indicator_name: name,
@@ -111,24 +115,24 @@ pub fn establish_connection() -> PgConnection {
 //         .expect("Error saving new indicator")
 // }
 
-pub fn update_indicator(conn: &PgConnection, indi: &db_indicator::DbIndicator) {
+pub fn update_indicator(conn: &PgConnection, indi: &indicator::Indicator) {
     use schema::indicators::dsl::*;
 
     let ii = diesel::update(indicators.find(indi.indicator_id))
         .set(parent_id.eq(indi.indicator_id - 1))
-        .get_result::<db_indicator::DbIndicator>(conn)
+        .get_result::<indicator::Indicator>(conn)
         .expect(&format!("Unable to update indicator {}", indi.indicator_id));
     println!("updated indicator {:?}", ii);
 }
 
 // TODO this is a really ugly implementation
-pub fn load_all_indicators_from_file<'a>(conn: &PgConnection) -> QueryResult<Vec<DbIndicator>> {
+pub fn load_all_indicators_from_file<'a>(conn: &PgConnection) -> QueryResult<Vec<Indicator>> {
     use database::schema::indicators;
-    use DbIndiFunc::*;
+    use IndiFunc::*;
 
-    let mut indis: Vec<DbIndicator> = vec![];
+    let mut indis: Vec<Indicator> = vec![];
     for entry in glob("config/indicator/*/*").unwrap().filter_map(Result::ok) {
-        println!("loading-indicator-file: {:?}", entry);
+        // println!("loading-indicator-file: {:?}", entry);
         let func = match entry
             .parent()
             .unwrap()
@@ -144,7 +148,7 @@ pub fn load_all_indicators_from_file<'a>(conn: &PgConnection) -> QueryResult<Vec
             "continue" => Continue,
             e => panic!("unknown func {:?}", e),
         };
-        let indi: Indicator = serde_any::from_file(entry).unwrap();
+        let indi: params::Indicator = serde_any::from_file(entry).unwrap();
         indis.push(store_indicator(conn, &indi, None, func)?);
 
         // indis.push((func, &indi).into());
@@ -175,26 +179,26 @@ pub fn load_all_indicators_from_file<'a>(conn: &PgConnection) -> QueryResult<Vec
 fn generate_population(
     conn: &PgConnection,
     size: usize,
-    functions: Vec<DbIndiFunc>,
-) -> QueryResult<Vec<DbIndicatorSet>> {
+    functions: Vec<IndiFunc>,
+) -> QueryResult<Vec<IndicatorSet>> {
     use database::schema::indicator_sets;
     use database::schema::indicators::dsl::*;
     use rand::seq::SliceRandom;
 
-    let mut fmap = HashMap::<DbIndiFunc, Vec<DbIndicator>>::new();
+    let mut fmap = HashMap::<IndiFunc, Vec<Indicator>>::new();
     for f in &functions {
         // TODO load all at once and group locally instead of loadin individually
         // FIXME load filter parent_id.is_null() or child_id.is_null()
-        fmap.insert(*f, indicators.filter(func.eq(f)).load::<DbIndicator>(conn)?);
+        fmap.insert(*f, indicators.filter(func.eq(f)).load::<Indicator>(conn)?);
     }
 
     let mut rng = rand::thread_rng();
-    let mut set_indis = Vec::<DbSetIndicator>::new();
-    let mut indi_sets = Vec::<DbIndicatorSet>::new();
+    let mut set_indis = Vec::<SetIndicator>::new();
+    let mut indi_sets = Vec::<IndicatorSet>::new();
     for i in 0..size {
         let indi_set = store_new_db_indicator_set(conn)?;
         for f in &functions {
-            set_indis.push(DbSetIndicator {
+            set_indis.push(SetIndicator {
                 indicator_set_id: indi_set.indicator_set_id,
                 indicator_id: fmap.get(&f).unwrap().choose(&mut rng).unwrap().indicator_id,
             })
@@ -213,19 +217,19 @@ fn generate_population(
 //     conn: &PgConnection,
 //     size: usize,
 //     functions: Vec<DbIndiFunc>,
-// ) -> QueryResult<Vec<DbIndicatorSet>> {
+// ) -> QueryResult<Vec<IndicatorSet>> {
 //     use database::schema::indicators::dsl::*;
 //     use database::schema::indicator_sets;
 //     use rand::seq::SliceRandom;
 
-//     // let fmap = HashMap::<DbIndiFunc, DbIndicator>;
+//     // let fmap = HashMap::<DbIndiFunc, Indicator>;
 //     for f in functions {
 //         let indis = indicators
 //             .filter(func.eq(f))
-//             .load::<DbIndicator>(conn)?;
+//             .load::<Indicator>(conn)?;
 
 //         // TODO I need this to be "mit zuruecklegen"
-//         // let selection: Vec<&DbIndicator> = indis.choose_multiple(&mut rand::thread_rng(), size)
+//         // let selection: Vec<&Indicator> = indis.choose_multiple(&mut rand::thread_rng(), size)
 //                                                 // .cloned().collect();
 //     }
 
@@ -235,16 +239,12 @@ fn generate_population(
 fn generate_test_results(conn: &PgConnection) -> QueryResult<()> {
     use bigdecimal::BigDecimal;
     use chrono::{NaiveDate, NaiveDateTime, Utc};
-    use database::db_indicator::DbIndiFunc::*;
+    use database::indicator::IndiFunc::*;
     use database::result::*;
     use database::run::*;
     use database::run_session::*;
-    use database::schema::indicator_inputs;
-    use database::schema::indicators;
-    use database::schema::results;
-    use database::schema::run_sessions;
-    use database::schema::runs;
-    use database::schema::set_indicators;
+    use database::indicator_inputs_explicit::*;
+    use database::schema::*;
     use database::symbols::*;
     use diesel::insert_into;
     // use rand::seq::SliceRandom;
@@ -279,19 +279,20 @@ fn generate_test_results(conn: &PgConnection) -> QueryResult<()> {
             .get_result::<Run>(conn)?;
 
         let set_indis =
-            DbSetIndicator::belonging_to(&indi_set_ranged).get_results::<DbSetIndicator>(conn)?;
+            SetIndicator::belonging_to(&indi_set_ranged).get_results::<SetIndicator>(conn)?;
 
-        // let mut indi_set_map = HashMap::<DbIndiFunc, (DbIndicator, Vec<DbIndicatorInput>)>::new();
-        let mut indi_set_with_inputs = Vec::<(DbIndicator, Vec<DbIndicatorInput>)>::new();
+        // let mut indi_set_map = HashMap::<DbIndiFunc, (Indicator, Vec<IndicatorInput>)>::new();
+        let mut indi_set_with_inputs = Vec::<(Indicator, Vec<IndicatorInput>)>::new();
         for set_indi in set_indis {
             let indi_with_inputs = load_indicator(conn, set_indi.indicator_id)?;
-            println!("{:?}", Indicator::from(indi_with_inputs.clone()));
+            println!("{:?}", params::Indicator::from(indi_with_inputs.clone()));
             indi_set_with_inputs.push(indi_with_inputs);
         }
 
-        let mut new_indi_sets = Vec::<DbIndicatorSet>::new(); // init with_capactity to elimitate growing contantly
+        // TODO remove
+        // let mut new_indi_sets = Vec::<IndicatorSet>::new(); // init with_capactity to elimitate growing contantly
                                                               // spread out the ranged inputs get a Vec of singles
-        let mut inputs_spread = HashMap::<DbIndiFunc, HashMap<i16, Vec<BigDecimal>>>::new();
+        let mut inputs_spread = HashMap::<IndiFunc, HashMap<i16, Vec<BigDecimal>>>::new();
         for (indi, inputs) in &indi_set_with_inputs {
             let mut input_map: HashMap<i16, Vec<BigDecimal>> = inputs
                 .iter()
@@ -299,6 +300,7 @@ fn generate_test_results(conn: &PgConnection) -> QueryResult<()> {
                 .map(|i| (i.index, vec![i.input.clone().unwrap()])) // create a hashmap out of it with the key per index
                 .collect();
 
+            // TODO if we want all inputs -> don't filter here
             let ranged_inputs = inputs.iter().filter(|i| i.start.is_some());
 
             for i in ranged_inputs {
@@ -319,67 +321,143 @@ fn generate_test_results(conn: &PgConnection) -> QueryResult<()> {
             inputs_spread.insert(indi.func, input_map);
         }
 
-        // create the new indi_sets from the spread-out inputs
         let mut rng = rand::thread_rng();
-        let mut new_inputs = Vec::<DbIndicatorInput>::new();
         let num_indi_sets = 500;
+        let normal = Normal::new(0.5, 0.2).unwrap(); // mean 0.5 sig**2 0.3
+                                                      // create results for (some) of the indicators sets within this indicator_set
+        let mut res = Vec::<NewRunResult>::with_capacity(num_indi_sets);
         for n in (0..num_indi_sets) {
-            print!("\r{}/{}", n+1, num_indi_sets);
-            io::stdout().flush().unwrap();
-
-            let new_indis_for_set = indi_set_with_inputs
-                .iter()
-                .map(|(indi, _)| indi.new_child_no_ref(conn).unwrap())
-                .collect::<Vec<DbIndicator>>();
-
-            let new_indi_set = store_new_indicator_set(conn, &new_indis_for_set)?;
-            // these two transactions new_child() and store_new_indicator_set take a long time.
-            // this might be helpfull to aggregate to do the transaction all at once
-
-            // rand chose for every index according to func
-            for new_indi in new_indis_for_set {
-                // println!("new_indi {:?}", indicators::)
-                new_inputs.extend(inputs_spread.get(&new_indi.func).unwrap().iter().map(
-                    |(idx, inputs)| {
-                        DbIndicatorInput {
-                            indicator_id: new_indi.id().to_owned(),
-                            index: idx.to_owned(),
-                            input: Some(inputs.choose(&mut rng).unwrap().to_owned()), // if choose return None we have to deal with the error
-                            start: None,
-                            stop: None,
-                            step: None,
-                        }
-                    },
-                ));
-            }
-            // println!(
-            //     "{:#?}\n\n{:#?}",
-            //     DbSetIndicator::belonging_to(&new_indi_set).get_results::<DbSetIndicator>(conn)?,
-            //     new_inputs
-            // );
-            new_indi_sets.push(new_indi_set);
+            let s = normal.sample(&mut rng);
+            res.push(
+                NewRunResult {
+                    run_id: run.id().to_owned(),
+                    result: s,
+                    profit: rng.gen_range(0.0, 200000.0),
+                    trades: rng.gen_range(0, 2000),
+                    expected_payoff: 0.,
+                    profit_factor: 0.,
+                    recovery_factor: 0.,
+                    sharpe_ratio: 0.,
+                    custom_result: s,
+                    equity_drawdown: 0.,
+                });
         }
 
-        insert_into(indicator_inputs::table)
-            .values(&new_inputs)
-            .execute(conn)?;
-        println!("inserted {} inputs", new_inputs.len());
+        let mut db_results = insert_into(results::table).values(&res).get_results::<RunResult>(conn)?;
+        // println!("res: {}", db_results.len());
 
-        let normal = Normal::new(0.5, 0.25).unwrap(); // mean 0.5 sig**2 0.3
-                                                      // create results for (some) of the indicators sets within this indicator_set
-        let res = new_indi_sets
-            .iter()
-            .map(|i| RunResult {
-                run_id: run.id().to_owned(),
-                indicator_set_id: i.id().to_owned(),
-                result: normal.sample(&mut rng),
-                profit: rng.gen_range(0.0, 200000.0),
-                trades: rng.gen_range(0, 2000),
-            })
-            .collect::<Vec<RunResult>>();
+        // create the new indi_sets from the spread-out inputs
+        for n in (0..num_indi_sets) {
+            // print!("\r{}/{}", n+1, num_indi_sets);
+            // io::stdout().flush().unwrap();
 
-        let res_len = insert_into(results::table).values(&res).execute(conn)?;
-        println!("inserted {} results", res_len);
+            let mut new_inputs = indi_set_with_inputs.iter().map(
+                |(indi, _)| {
+                let inputs = inputs_spread.get(&indi.func).unwrap();
+                NewIndicatorInputsExplicit {
+                    indicator_id: indi.id().to_owned(),
+                    input0: inputs.get(&0).map(|v| v.choose(&mut rng).unwrap().to_owned()),
+                    input1: inputs.get(&1).map(|v| v.choose(&mut rng).unwrap().to_owned()),
+                    input2: inputs.get(&2).map(|v| v.choose(&mut rng).unwrap().to_owned()),
+                    input3: inputs.get(&3).map(|v| v.choose(&mut rng).unwrap().to_owned()),
+                    input4: inputs.get(&4).map(|v| v.choose(&mut rng).unwrap().to_owned()),
+                    input5: inputs.get(&5).map(|v| v.choose(&mut rng).unwrap().to_owned()),
+                    input6: inputs.get(&6).map(|v| v.choose(&mut rng).unwrap().to_owned()),
+                    input7: inputs.get(&7).map(|v| v.choose(&mut rng).unwrap().to_owned()),
+                    input8: inputs.get(&8).map(|v| v.choose(&mut rng).unwrap().to_owned()),
+                    input9: inputs.get(&9).map(|v| v.choose(&mut rng).unwrap().to_owned()),
+                    input10: inputs.get(&10).map(|v| v.choose(&mut rng).unwrap().to_owned()),
+                    input11: inputs.get(&11).map(|v| v.choose(&mut rng).unwrap().to_owned()),
+                    input12: inputs.get(&12).map(|v| v.choose(&mut rng).unwrap().to_owned()),
+                    input13: inputs.get(&13).map(|v| v.choose(&mut rng).unwrap().to_owned()),
+                    input14: inputs.get(&14).map(|v| v.choose(&mut rng).unwrap().to_owned()),
+                }}
+            ).collect::<Vec<NewIndicatorInputsExplicit>>();
+
+            let db_inputs = insert_into(indicator_inputs_explicit::table)
+                .values(new_inputs).get_results::<IndicatorInputsExplicit>(conn)?;
+
+            let next_res = db_results.pop().unwrap();
+            let result_sets = db_inputs.iter()
+                    .map(|i|
+                         ResultSet {
+                             result_id: next_res.id().to_owned(),
+                             inputs_id: i.id().to_owned()
+                         })
+                    .collect::<Vec<ResultSet>>();
+            let cnt = insert_into(result_sets::table).values(&result_sets).execute(conn)?;
+            // println!("result-set: {:?}", result_sets);
+        }
+
+        // println!("inputs-explicit: {:?}", db_inputs);
+
+        // let result_sets = db_results.iter().zip(db_inputs.iter()).map(|(r, i)| ResultSet {
+        //     result_id: r.id().to_owned(), inputs_id: i.id().to_owned()}).collect::<Vec<ResultSet>>();
+        // let cnt = insert_into(result_sets::table).values(&result_sets).execute(conn)?;
+        // println!("inserted: {}\n{:?}", cnt, result_sets);
+
+
+        // let mut new_inputs = Vec::<IndicatorInput>::new();
+        // for n in (0..num_indi_sets) {
+        //     print!("\r{}/{}", n+1, num_indi_sets);
+        //     io::stdout().flush().unwrap();
+
+        //     let new_indis_for_set = indi_set_with_inputs
+        //         .iter()
+        //         .map(|(indi, _)| indi.new_child_no_ref(conn).unwrap())
+        //         .collect::<Vec<Indicator>>();
+
+        //     let new_indi_set = store_new_indicator_set(conn, &new_indis_for_set)?;
+        //     // these two transactions new_child() and store_new_indicator_set take a long time.
+        //     // this might be helpfull to aggregate to do the transaction all at once
+
+        //     // rand chose for every index according to func
+        //     for new_indi in new_indis_for_set {
+        //         // println!("new_indi {:?}", indicators::)
+        //         new_inputs.extend(inputs_spread.get(&new_indi.func).unwrap().iter().map(
+        //             |(idx, inputs)| {
+        //                 IndicatorInput {
+        //                     indicator_id: new_indi.id().to_owned(),
+        //                     index: idx.to_owned(),
+        //                     input: Some(inputs.choose(&mut rng).unwrap().to_owned()), // if choose return None we have to deal with the error
+        //                     start: None,
+        //                     stop: None,
+        //                     step: None,
+        //                 }
+        //             },
+        //         ));
+        //     }
+        //     // println!(
+        //     //     "{:#?}\n\n{:#?}",
+        //     //     SetIndicator::belonging_to(&new_indi_set).get_results::<SetIndicator>(conn)?,
+        //     //     new_inputs
+        //     // );
+        //     new_indi_sets.push(new_indi_set);
+        // }
+
+        // insert_into(indicator_inputs::table)
+        //     .values(&new_inputs)
+        //     .execute(conn)?;
+        // println!("inserted {} inputs", new_inputs.len());
+
+        // let res = new_indi_sets
+        //     .iter()
+        //     .map(|i| NewRunResult {
+        //         run_id: run.id().to_owned(),
+        //         result: normal.sample(&mut rng),
+        //         profit: rng.gen_range(0.0, 200000.0),
+        //         trades: rng.gen_range(0, 2000),
+        //         expected_payoff: 0.,
+        //         profit_factor: 0.,
+        //         recovery_factor: 0.,
+        //         sharpe_ratio: 0.,
+        //         custom_result: 0.,
+        //         equity_drawdown: 0.,
+        //     })
+        //     .collect::<Vec<NewRunResult>>();
+
+        // let res_len = insert_into(results::table).values(&res).execute(conn)?;
+        // println!("inserted {} results", res_len);
     }
 
     Ok(())

@@ -1,11 +1,10 @@
 // use serde_repr::{Serialize_repr, Deserialize_repr};
-use super::super::params::Indicator;
+// use super::super::params;
 use super::schema::*; //{indicator_sets, indicators};
-use crate::database::db_indicator::DbIndicator;
+use super::indicator::*;
 use diesel::prelude::*;
 
-use super::super::params::IndicatorSet;
-use super::load_indicator;
+use crate::params;
 
 // // Custom declaration of indicator_sets to allow derive(DbEnum) for DbIndiFunc
 // table! {
@@ -23,10 +22,10 @@ use super::load_indicator;
 
 #[derive(Queryable, Insertable, Identifiable, Associations, Debug)]
 #[primary_key(indicator_set_id, indicator_id)]
-#[belongs_to(DbIndicator, foreign_key = "indicator_id")]
-#[belongs_to(DbIndicatorSet, foreign_key = "indicator_set_id")]
+#[belongs_to(Indicator, foreign_key = "indicator_id")]
+#[belongs_to(IndicatorSet, foreign_key = "indicator_set_id")]
 #[table_name = "set_indicators"]
-pub struct DbSetIndicator {
+pub struct SetIndicator {
     pub indicator_set_id: i64,
     pub indicator_id: i32, // 1:m
 }
@@ -34,7 +33,7 @@ pub struct DbSetIndicator {
 #[derive(Queryable, Insertable, Identifiable, Debug)]
 #[primary_key(indicator_set_id)]
 #[table_name = "indicator_sets"]
-pub struct DbIndicatorSet {
+pub struct IndicatorSet {
     pub indicator_set_id: i64,
 }
 
@@ -51,7 +50,7 @@ pub struct DbIndicatorSet {
 
 //     let db_indi_set = set_indicators
 //         .filter(indicator_set_id.eq(indi_set_id))
-//         .load::<DbSetIndicator>(conn)? // load the indicator set from DB
+//         .load::<SetIndicator>(conn)? // load the indicator set from DB
 //         .iter()
 //         .map(|set| (load_indicator(conn, set.indicator_id).unwrap(), set.func)) // load all indicators specified in the Set
 //         // FIXME database errors or if the indicator is not found are ignored
@@ -75,8 +74,8 @@ pub struct DbIndicatorSet {
 
 pub fn find_db_indicator_set(
     conn: &PgConnection,
-    indi_set: IndicatorSet,
-) -> Result<Option<Vec<DbSetIndicator>>, diesel::result::Error> {
+    indi_set: params::IndicatorSet,
+) -> Result<Option<Vec<SetIndicator>>, diesel::result::Error> {
     // TODO
     // for each func in indi_set
     // find_db_indicator()
@@ -87,8 +86,8 @@ pub fn find_db_indicator_set(
 
 pub fn store_plain_indicator_set(
     conn: &PgConnection,
-    indi_set: &IndicatorSet,
-) -> QueryResult<Vec<DbSetIndicator>> {
+    indi_set: &params::IndicatorSet,
+) -> QueryResult<Vec<SetIndicator>> {
     let db_indi_set = store_new_db_indicator_set(conn)?;
     // TODO Optional
     // TODO
@@ -101,8 +100,8 @@ pub fn store_plain_indicator_set(
 
 pub fn store_set_indicators(
     conn: &PgConnection,
-    set_indis: Vec<DbSetIndicator>,
-) -> QueryResult<Vec<DbSetIndicator>> {
+    set_indis: Vec<SetIndicator>,
+) -> QueryResult<Vec<SetIndicator>> {
     use self::set_indicators::dsl::*;
     diesel::insert_into(set_indicators)
         .values(set_indis)
@@ -110,7 +109,7 @@ pub fn store_set_indicators(
 }
 
 // creates a new indicator_set in the DB (a new row) which gets a ne unique id that can be used for set_indicators
-pub fn store_new_db_indicator_set(conn: &PgConnection) -> QueryResult<DbIndicatorSet> {
+pub fn store_new_db_indicator_set(conn: &PgConnection) -> QueryResult<IndicatorSet> {
     use super::schema::indicator_sets::dsl::*;
     diesel::insert_into(indicator_sets)
         .default_values()
@@ -119,13 +118,13 @@ pub fn store_new_db_indicator_set(conn: &PgConnection) -> QueryResult<DbIndicato
 
 pub fn store_new_indicator_set(
     conn: &PgConnection,
-    indis: &Vec<DbIndicator>,
-) -> QueryResult<DbIndicatorSet> {
+    indis: &Vec<Indicator>,
+) -> QueryResult<IndicatorSet> {
     use crate::database::schema::indicator_sets;
     let indi_set = store_new_db_indicator_set(conn)?;
     let set_indis = indis
         .iter()
-        .map(|i| DbSetIndicator {
+        .map(|i| SetIndicator {
             indicator_set_id: indi_set.id().to_owned(),
             indicator_id: i.id().to_owned(),
         })

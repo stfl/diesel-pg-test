@@ -7,7 +7,7 @@ index 5819b47..4103d7e 100644
  
  table! {
 +    use diesel::sql_types::*;
-+    use crate::database::DbIndiFuncMapping;
++    use crate::database::indicator::IndiFuncMapping;
      indicators (indicator_id) {
          indicator_id -> Int4,
          parent_id -> Nullable<Int4>,
@@ -15,7 +15,7 @@ index 5819b47..4103d7e 100644
          indicator_name -> Varchar,
          shift -> Int2,
 -        func -> Indifunc,
-+        func -> DbIndiFuncMapping,
++        func -> IndiFuncMapping,
      }
  }
  
