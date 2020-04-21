@@ -29,6 +29,10 @@ pub struct Indicator {
     pub name: String,
     pub shift: i16,
     pub func: IndiFunc,
+    pub class: Option<SignalClass>,
+    pub filename: Option<String>,
+    pub buffers: Option<Vec<i16>>,
+    pub config: Option<Vec<BigDecimal>>,
 }
 
 #[derive(Insertable)]
@@ -36,9 +40,13 @@ pub struct Indicator {
 pub struct NewIndicator {
     pub parent_id: Option<i32>,
     pub child_id: Option<i32>,
-    pub indicator_name: String,
+    pub indicator_name: String,  // TODO make borrowed?
     pub shift: i16,
     pub func: IndiFunc,
+    pub class: Option<SignalClass>,
+    pub filename: Option<String>, // TODO make borrowed?
+    pub buffers: Option<Vec<i16>>,
+    pub config: Option<Vec<BigDecimal>>,
 }
 
 #[derive(Queryable, Insertable, Identifiable, Associations, Debug, Clone)]
@@ -65,6 +73,28 @@ pub enum IndiFunc {
     Exit,
 }
 
+// FIXME define values same as in MQL
+#[derive(DbEnum, Debug, PartialEq, Eq, Hash, Copy, Clone)]
+pub enum SignalClass {
+   Preset = 0,
+   ZeroLineCross,
+   TwoLinesCross,
+   TwoLinesTwoLevelsCross,
+   TwoLevelsCross,
+   PriceCross,
+   PriceCrossInverted,
+   Semaphore,
+   TwoLinesColorChange,
+   ColorChange,
+   BothLinesTwoLevelsCross,
+   BothLinesLevelCross,
+   SaturationLevels,
+   SaturationLines,
+   BothLinesSaturationLevels,
+   SlopeChange,
+   TwoLinesSlopeChange,
+}
+
 // #[derive(Queryable, Insertable, Identifiable, Associations, Debug)]
 // #[primary_key(indicator_id)]
 // #[belongs_to(Indicator, foreign_key = "indicator_id")]
@@ -87,6 +117,8 @@ pub enum IndiFunc {
 //     }
 // }
 
+// FIXME this is temp removed because API changes with params::Indicator
+// needs to be generate::Indicator
 impl<'a> From<(IndiFunc, &'a params::Indicator)> for NewIndicator {
     fn from((func, indi): (IndiFunc, &'a params::Indicator)) -> Self {
         NewIndicator {
@@ -95,10 +127,17 @@ impl<'a> From<(IndiFunc, &'a params::Indicator)> for NewIndicator {
             indicator_name: indi.name.clone(),
             shift: indi.shift as i16,
             func, //: func.to_owned(),
+
+            // FIXME this needs to be taken from generate Indicator
+            class: None,
+            filename: None,
+            buffers: None,
+            config: None,
         }
     }
 }
 
+// FIXME same here
 impl From<(IndiFunc, params::Indicator)> for NewIndicator {
     fn from((func, indi): (IndiFunc, params::Indicator)) -> Self {
         NewIndicator {
@@ -107,6 +146,12 @@ impl From<(IndiFunc, params::Indicator)> for NewIndicator {
             indicator_name: indi.name,
             shift: indi.shift as i16,
             func,
+
+            // FIXME this needs to be taken from generate Indicator
+            class: None,
+            filename: None,
+            buffers: None,
+            config: None,
         }
     }
 }
@@ -170,6 +215,10 @@ impl Indicator {
                 indicator_name: self.name.to_owned(),
                 shift: self.shift as i16,
                 func: self.func,
+                class: self.class,
+                filename: self.filename.clone(),
+                buffers: self.buffers.clone(),
+                config: self.config.clone(),
             })
             .get_result(conn)
     }

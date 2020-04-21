@@ -9,5 +9,5 @@ DROP INDEX parents_index;
 DROP INDEX indi_names_index;
 -- DROP TABLE indicator_default_func;
 DROP TABLE indicators;
+DROP TYPE SignalClass;
 DROP TYPE IndiFunc;
-

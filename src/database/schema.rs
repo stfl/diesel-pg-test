@@ -52,6 +52,7 @@ table! {
 table! {
     use diesel::sql_types::*;
     use crate::database::indicator::IndiFuncMapping;
+    use crate::database::indicator::SignalClassMapping;
     indicators (indicator_id) {
         indicator_id -> Int4,
         parent_id -> Nullable<Int4>,
@@ -59,6 +60,10 @@ table! {
         indicator_name -> Varchar,
         shift -> Int2,
         func -> IndiFuncMapping,
+        class -> Nullable<SignalClassMapping>,
+        filename -> Nullable<Varchar>,
+        buffers -> Nullable<Array<Int2>>,
+        config -> Nullable<Array<Numeric>>,
     }
 }
 
