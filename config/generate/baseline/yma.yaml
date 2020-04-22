@@ -2,7 +2,7 @@
 name: YMA
 name_indi: YGMA
 # use YMA and GMA from the same indi
-indi_type: OnChart
+indi_type: PriceCross
 inputs:
     # YMA
   - - Int

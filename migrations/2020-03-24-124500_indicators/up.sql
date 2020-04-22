@@ -1,22 +1,22 @@
 CREATE TYPE IndiFunc AS ENUM ('confirm', 'confirm2', 'confirm3', 'baseline', 'volume', 'continue', 'exit');
 CREATE TYPE SignalClass AS ENUM (
-   'Preset',
-   'ZeroLineCross',
-   'TwoLinesCross',
-   'TwoLinesTwoLevelsCross',
-   'TwoLevelsCross',
-   'PriceCross',
-   'PriceCrossInverted',
-   'Semaphore',
-   'TwoLinesColorChange',
-   'ColorChange',
-   'BothLinesTwoLevelsCross',
-   'BothLinesLevelCross',
-   'SaturationLevels',
-   'SaturationLines',
-   'BothLinesSaturationLevels',
-   'SlopeChange',
-   'TwoLinesSlopeChange'
+   'preset',
+   'zero_line_cross',
+   'two_lines_cross',
+   'two_lines_two_levels_cross',
+   'two_levels_cross',
+   'price_cross',
+   'price_cross_inverted',
+   'semaphore',
+   'two_lines_color_change',
+   'color_change',
+   'both_lines_two_levels_cross',
+   'both_lines_level_cross',
+   'saturation_levels',
+   'saturation_lines',
+   'both_lines_saturation_levels',
+   'slope_change',
+   'two_lines_slope_change'
 );
 
 CREATE TABLE indicators (

@@ -1,7 +1,7 @@
 ---
 name: Corr_avg
 name_indi: Corr_average
-indi_type: SingleLineColorChange
+indi_type: ColorChange
 inputs:
 
 # input ENUM_TIMEFRAMES TimeFrame        = PERIOD_CURRENT; // Time frame

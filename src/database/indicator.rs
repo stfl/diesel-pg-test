@@ -1,6 +1,7 @@
 use super::super::params;
 use super::schema::*;
 use super::*;
+use crate::signal_generator;
 
 use bigdecimal::BigDecimal;
 use diesel::prelude::*;
@@ -74,7 +75,7 @@ pub enum IndiFunc {
 }
 
 // FIXME define values same as in MQL
-#[derive(DbEnum, Debug, PartialEq, Eq, Hash, Copy, Clone)]
+#[derive(DbEnum, Debug, PartialEq, Eq, Hash, Copy, Clone, Serialize, Deserialize)]
 pub enum SignalClass {
    Preset = 0,
    ZeroLineCross,
@@ -117,8 +118,6 @@ pub enum SignalClass {
 //     }
 // }
 
-// FIXME this is temp removed because API changes with params::Indicator
-// needs to be generate::Indicator
 impl<'a> From<(IndiFunc, &'a params::Indicator)> for NewIndicator {
     fn from((func, indi): (IndiFunc, &'a params::Indicator)) -> Self {
         NewIndicator {
@@ -137,7 +136,6 @@ impl<'a> From<(IndiFunc, &'a params::Indicator)> for NewIndicator {
     }
 }
 
-// FIXME same here
 impl From<(IndiFunc, params::Indicator)> for NewIndicator {
     fn from((func, indi): (IndiFunc, params::Indicator)) -> Self {
         NewIndicator {
@@ -152,6 +150,30 @@ impl From<(IndiFunc, params::Indicator)> for NewIndicator {
             filename: None,
             buffers: None,
             config: None,
+        }
+    }
+}
+
+impl<'a> From<(IndiFunc, &'a signal_generator::SignalParams)> for NewIndicator {
+    fn from((func, indi): (IndiFunc, &'a signal_generator::SignalParams)) -> Self {
+        NewIndicator {
+            parent_id: None,
+            child_id: None,
+            indicator_name: indi.name.clone(),
+            shift: indi.shift as i16,
+            func, //: func.to_owned(),
+            class: Some(indi.indi_type),
+            filename: Some(indi.name_indi.clone()),
+            buffers: Some(indi.buffers.clone()),
+            config: match (&indi.levels, &indi.colors) {
+                (Some(l), None) => Some(l.clone()),
+                (None, Some(c)) => Some(c.clone()),
+                (None, None) => None,
+                (Some(l), Some(c)) => {
+                    l.clone().append(&mut c.clone());
+                    Some(l.clone())
+                }
+            }
         }
     }
 }
@@ -257,6 +279,72 @@ impl Indicator {
         use schema::indicators::dsl::*;
         indicators.find(indi_id).first::<Indicator>(conn)
     }
+}
+
+
+pub fn store_signal_params(
+    conn: &PgConnection,
+    indi: &signal_generator::SignalParams,
+    parent: Option<i32>,
+    indi_func: IndiFunc,
+) -> Result<Indicator, diesel::result::Error> {
+    use schema::indicator_inputs::dsl::*;
+    use schema::indicators::dsl::*;
+
+    let mut new_db_indi = NewIndicator::from((indi_func, indi));
+    new_db_indi.parent_id = parent;
+
+    if parent == None {
+        // TODO check if an indicator with this name is already in the database
+    }
+
+    let new_indi: Indicator = diesel::insert_into(indicators)
+        .values(new_db_indi)
+        .get_result(conn)?;
+
+    let indi_inputs: Vec<IndicatorInput> = indi
+        .inputs
+        .iter()
+        .enumerate()
+        .map(|(i, (t, v))| match v.len() {
+            1 => IndicatorInput {
+                indicator_id: new_indi.indicator_id,
+                index: i as i16,
+                input: Some(v[0].to_owned()),
+                start: None,
+                stop: None,
+                step: None,
+            },
+            3 => IndicatorInput {
+                indicator_id: new_indi.indicator_id,
+                index: i as i16,
+                input: None,
+                start: Some(v[0].to_owned()),
+                stop: Some(v[1].to_owned()),
+                step: Some(v[2].to_owned()),
+            },
+            4 => IndicatorInput {
+                indicator_id: new_indi.indicator_id,
+                index: i as i16,
+                input: Some(v[0].to_owned()),
+                start: Some(v[1].to_owned()),
+                stop: Some(v[2].to_owned()),
+                step: Some(v[3].to_owned()),
+            },
+            _ => panic!("wrong number values on input"),
+        })
+        .collect();
+
+    let indi_inputs: Vec<IndicatorInput> = diesel::insert_into(indicator_inputs)
+        .values(&indi_inputs)
+        .get_results(conn)?;
+    // TODO info!()
+    println!(
+        "inserted indicator: {:?}\nwith inputs: {:?}",
+        new_indi, indi_inputs
+    );
+
+    Ok(new_indi)
 }
 
 // TODO implment a trait ToDb which params::Indicator implements
